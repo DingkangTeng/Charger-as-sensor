@@ -7,7 +7,7 @@ TYPE_MAP = {
     "AC": "slow", "AC Controller/Receiver": "slow", "Slow ": "slow", "slow": "slow",
     "dc_controller_receiver": "fast", "rapid": "fast", "Fast": "fast",
     "Rapid": "fast", "Fast ": "fast", "Rapid ": "fast", "FAST": "fast", "ccs": "fast", "chademo": "fast",
-    "ultra_rapid": "ultra fast", "Ultra-Rapid": "ultra fast", "Ultra Rapid": "ultra fast",
+    "ultra_rapid": "fast", "Ultra-Rapid": "fast", "Ultra Rapid": "fast",
     np.nan: np.nan
 }
 
@@ -80,7 +80,14 @@ def cleanData(path: str, savePath: str) -> None:
     df.loc[endNaTMask, "End"] = df.loc[endNaTMask, "Start"] + pd.to_timedelta(df.loc[endNaTMask, "Duration Seconds"], unit='s')
     secondNanMask = df["Start"].notna() & df["End"].notna() & df["Duration Seconds"].isna()
     df.loc[secondNanMask, "Duration Seconds"] = (df.loc[secondNanMask, "End"] - df.loc[secondNanMask, "Start"]) / pd.Timedelta(seconds=1)
+
+    # Is weekend?
+    df["isWeekend"] = df["Start"].astype("datetime64[ns]").dt.weekday >= 5  # 5=Saturday, 6=Sunday
     
+    df.columns = [
+        "SITE", "CPID", "ConnectorType", "ConnectorID", "Currency", "Amount", "Consum",
+        "Duration", "Start", "ConnectorSpeed", "DurationSeconds", "End", "isWeekend"
+    ]
     df.to_csv(savePath, encoding="utf-8", index=False)
 
     return

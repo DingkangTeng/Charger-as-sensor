@@ -1,1 +1,2 @@
-from .heatmap import heatmap
+from .timeDistribution import timeDistribution
+from .monthPattern import monthPattern
