@@ -1,15 +1,25 @@
+import os
+ROOT = r"C:\Users\tengd\OneDrive - The Hong Kong Polytechnic University\Student Assistant\scotland"
+DATA_ROOT = os.path.join(ROOT, "Data")
+FIG_ROOT = os.path.join(ROOT, "fig")
+
 # Downlaod and merge data
-from downloadData import chargeplacescotland, mergeData, cleanData
+from downloadData import tableData, POIData, mergeData, cleanData, joinCoord
 # Download
-chargeplacescotland("Session").downloadAll(r"C:\Users\tengd\OneDrive - The Hong Kong Polytechnic University\Student Assistant\scotland\Data")
+tableData("Session").downloadAll(DATA_ROOT)
+POIData().save(DATA_ROOT)
 ## Merge
-mergeData(r"C:\Users\tengd\OneDrive - The Hong Kong Polytechnic University\Student Assistant\scotland\Data", maxThreads=16)
+mergeData(DATA_ROOT, maxThreads=16)
 ## Clean data
 cleanData(
-    r"C:\Users\tengd\OneDrive - The Hong Kong Polytechnic University\Student Assistant\scotland\Data\merge.csv",
-    r"C:\Users\tengd\OneDrive - The Hong Kong Polytechnic University\Student Assistant\scotland\Data\merge_clean.csv"
+    os.path.join(DATA_ROOT, "merge.csv"),
+    os.path.join(DATA_ROOT, "merge_clean.csv")
 )
 ## Join coordinate
-...
+joinCoord(
+    os.path.join(DATA_ROOT, "merge_clean.csv"),
+    os.path.join(DATA_ROOT, "poi.csv"),
+    DATA_ROOT
+)
 
 # Analysis data

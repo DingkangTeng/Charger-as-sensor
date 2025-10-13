@@ -1,12 +1,13 @@
 # It seems that popWorld do not support mutlti-thread downloading?
 import os
+import pandas as pd
 from bs4 import BeautifulSoup as bs
 from bs4 import Tag
 
 from _crawler import crawler
 from _files import mkdir, readFiles
 
-class chargeplacescotland:
+class tableData:
     __slots__ = ["hrefs"]
     __baseUrl = "https://chargeplacescotland.org/{}"
 
@@ -52,5 +53,61 @@ class chargeplacescotland:
 
             c = crawler(i)
             c.download(os.path.join(savePath, fileName))
+
+        return
+    
+class POIData:
+    __slots__ = ["df"]
+
+    def __init__(self) -> None:
+        c = crawler(
+            "https://account.chargeplacescotland.org/api/v3/poi/chargepoint/static",
+            headers={"api-auth": "c3VwcG9ydCtjcHNhcHBAdmVyc2FudHVzLmNvLnVrOmt5YlRYJkZPJCEzcVBOJHlhMVgj"}
+        )
+        r = c.rget()
+        features = r.json()["features"]
+        # {
+        #   'type': 'Feature',
+        #   'geometry': {'type': 'Point', 'coordinates': ['56.4796', '-2.8384']},
+        #   'properties': {
+        #       'name': '70299', 'id': '12570697', 'siteID': '12551851',
+        #       'connectorGroups': [
+        #           {'connectorGroupID': 1, 'connectors': [
+        #               {'connectorID': '1', 'connectorType': 'AC', 'connectorPlugType': 'type_2_plug',
+        #               'connectorPlugTypeName': 'Type 2', 'connectorMaxChargeRate': '7'}
+        #           ]},
+        #           {'connectorGroupID': 2, 'connectors': [
+        #               {'connectorID': '2', 'connectorType': 'AC', 'connectorPlugType': 'type_2_plug',
+        #               'connectorPlugTypeName': 'Type 2', 'connectorMaxChargeRate': '7'}
+        #           ]}
+        #       ],
+        #       'locationInfo': '', 'imageUrl': '',
+        #       'tariff': {
+        #           'amount': '0.60', 'currency': 'GBP', 'connectionfee': '0.00',
+        #           'description': '60p/kWh. £10 overstay fee applies after 8 hours.'
+        #       },
+        #       'pre-select': False,
+        #       'address': {
+        #           'sitename': 'Monifieth Learning Campus', 'streetnumber': 'Monifieth Learning Campus',
+        #           'street': 'Panmurefield Road', 'area': '', 'city': 'Dundee', 'postcode': 'DD5 4QT', 'country': 'GB'
+        #       },
+        #       'allowedVehicleType': 'public', 'displayCategory': 'public'
+        #   }
+        # }
+
+        result = []
+        for feature in features:
+            coordinates: list = feature["geometry"]["coordinates"]
+            properties: dict = feature["properties"]
+            cpid = properties["name"]
+            sitename = properties["address"]["sitename"]
+            city = properties["address"]["city"]
+            postcode = properties["address"]["postcode"]
+            result.append([cpid, sitename, city, postcode, coordinates[0], coordinates[1]])
+        
+        self.df = pd.DataFrame(result, columns=["CPID", "sitename", "city", "postcode", "lat", "lng"])
+
+    def save(self, path: str) -> None:
+        self.df.to_csv(os.path.join(path, "poi.csv"), encoding="utf-8", index=False)
 
         return

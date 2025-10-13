@@ -61,19 +61,3 @@ class monthPattern(Data):
             plt.savefig(os.path.join(savePath, "order.jpg"))
 
         return
-    
-    # def plotStations(self, figsize: str = 'D', savePath: str = "") -> None:
-    #     order = self.monthDf.drop_duplicates(subset="CPID")
-    #     order = order.groupby(["ConnectorSpeed", "month"]).size().unstack(fill_value=0)
-
-    #     plt.figure(figsize=getattr(FIG_SIZE, figsize))
-    #     ax = plt.subplot()
-    #     order.T.plot(ax=ax)
-
-    #     plt.tight_layout()
-    #     if savePath == "":
-    #         plt.show()
-    #     else:
-    #         plt.savefig(os.path.join(savePath, "order.jpg"))
-
-    #     return

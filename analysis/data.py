@@ -40,7 +40,6 @@ class Data:
     def cleanTime(self, inplace: Literal[False] = False) -> pd.DataFrame: ...
     @overload
     def cleanTime(self, inplace: Literal[True]) -> None: ...
-    
     def cleanTime(self, inplace: bool = False) -> None | pd.DataFrame:
         mask = (
             self.__df["Start"].notna() &                    # Clean invaild time data
@@ -51,7 +50,11 @@ class Data:
         )
         
         return self.__modify(mask, inplace)
-        
+
+    @overload
+    def cleanConSpeed(self, inplace: Literal[False] = False) -> pd.DataFrame: ...
+    @overload
+    def cleanConSpeed(self, inplace: Literal[True]) -> None: ...    
     def cleanConSpeed(self, inplace: bool = False) -> None | pd.DataFrame:
         mask = self.__df["ConnectorSpeed"].notna()
 

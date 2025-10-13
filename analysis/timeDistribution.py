@@ -17,7 +17,7 @@ class timeDistribution(Data):
     __slots__ = ["__path", "CHARGER_TYPES"]
 
     def __init__(self, path: str | pd.DataFrame) -> None:
-        self.__path = ""
+        self.__path = "   "
         if isinstance(path, str) and ".csv" not in path:
             self.__path = path
             self.CHARGER_TYPES = ["slow", "fast"]
@@ -40,8 +40,9 @@ class timeDistribution(Data):
         return
     
     def cleanCacheData(self) -> None:
-        timeDf = os.path.join(self.__path, "merge_time.csv")
-        os.remove(timeDf) if os.path.exists(timeDf) else None
+        if self.__path != "   ":
+            timeDf = os.path.join(self.__path, "merge_time.csv")
+            os.remove(timeDf) if os.path.exists(timeDf) else None
 
         return
     
@@ -80,7 +81,7 @@ class timeDistribution(Data):
 
     # 24 hours heatmap
     def HHeatmap(self, axs: Axes | None = None, figsize: str = 'W', threadNum: int = 1, savePath: str = "") -> None:
-        if "merge_time.csv" in os.listdir(self.__path):
+        if self.__path != "   " and "merge_time.csv" in os.listdir(self.__path):
             timeDf = pd.read_csv(os.path.join(self.__path, "merge_time.csv"), encoding="utf-8")
         else:
             expandedRecords = []
@@ -98,7 +99,8 @@ class timeDistribution(Data):
                         expandedRecords.extend(record)
         
             timeDf = pd.DataFrame(expandedRecords)
-            timeDf.to_csv(os.path.join(self.__path, "merge_time.csv"), encoding="utf-8")
+            if self.__path != "   ":
+                timeDf.to_csv(os.path.join(self.__path, "merge_time.csv"), encoding="utf-8")
 
         # timeDf:    
         #     type  hour  isWeekend

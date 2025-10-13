@@ -8,12 +8,15 @@ from .apiKey import HEADERS
 MB = 1024**2
 
 class crawler:
-    __slots__ = ["url", "postData"]
-    __headers = HEADERS
+    __slots__ = ["url", "postData", "__headers"]
 
-    def __init__(self, url: str, postData: dict = {}):
+    def __init__(self, url: str, postData: dict = {}, headers: dict = {}):
         self.url = url
         self.postData = postData
+        if headers != {}:
+            self.__headers = {**HEADERS, **headers}
+        else:
+            self.__headers = HEADERS
 
     def rpost(self) -> requests.Response:
         while True:

@@ -27,6 +27,7 @@ def __convertDayFormat(time_str: str) -> int | float:
 
 def cleanData(path: str, savePath: str) -> None:
     df = pd.read_csv(path, encoding="utf-8")
+    total = df.shape[0]
 
     # Swap misplacesd connector ID and connector type
     mask = df["Connector ID"].isna() | (df["Connector ID"] =="Â£")
@@ -35,6 +36,8 @@ def cleanData(path: str, savePath: str) -> None:
 
     # Fill connector type by CPID and connector ID with mode
     mask = pd.to_numeric(df["Connector Type"], errors='coerce').notna() | df["Connector Type"].isna()
+    n = df[mask].shape[0]
+    print(f"Filling {n}/{total}({n/total*100:.2f}%) missing or invaild connector types")
     typeMapping = df[~mask].groupby(["CPID", "Connector ID"])["Connector Type"].agg(lambda x: x.value_counts().idxmax()).to_dict()
     df.loc[mask, "Connector Type"] = df[mask].apply(
         lambda row: typeMapping.get((row["CPID"], row["Connector ID"]), np.nan), 
