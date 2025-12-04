@@ -36,7 +36,7 @@ class spatialPattern(Data):
         gdf.to_crs(EPSG, inplace=True) 
 
         # 空间网格化
-        xmin, ymin, _ = gdf.total_bounds
+        xmin, ymin, _, _ = gdf.total_bounds
         grid_size = 1000  # 1km网格
         # 计算每个点所在的网格行列号
         gdf['grid_x'] = ((gdf.geometry.x - xmin) // grid_size).astype(int)
