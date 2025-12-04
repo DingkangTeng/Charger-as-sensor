@@ -29,13 +29,13 @@ class spatialPattern(Data):
 
         return
     
-    def grid(self, savePath: str, gridType: str = "all") -> None:
+    def grid(self, savePath: str, gridSize: float = 1000, gridType: str = "allRecord") -> None:
         gdf = gpd.GeoDataFrame(self.cleanTime())
         gdf.to_crs(EPSG, inplace=True) # Change to planar coordinate system
 
         # Creat grid
         xmin, ymin, _, _ = gdf.total_bounds
-        gridSize = 1000  # 1km网格
+
         # Calculate grid number
         gdf["grid_x"] = ((gdf.geometry.x - xmin) // gridSize).astype(int)
         gdf["grid_y"] = ((gdf.geometry.y - ymin) // gridSize).astype(int)
@@ -47,14 +47,13 @@ class spatialPattern(Data):
             groupTag += ["hour"]
         elif gridType == "speed":
             gdf = gdf[gdf["ConnectorSpeed"].notna()]
-            gdf["ConnectorSpeed"] = gdf["ConnectorSpeed"].map({True: "fast", False: "slow"})
             groupTag += ["ConnectorSpeed"]
 
         grids = []
         
         # Calcualte grid
         grouped = gdf.groupby(groupTag)
-        bar = tqdm(total=len(grouped), desc="Generating grids", unit="grid")
+        bar = tqdm(total=len(grouped), desc="Generating grids of {}".format(gridType), unit="grid")
         for tags, group in grouped:
             grids.append(
                 self._calSingleCube(tags, group, xmin, ymin, gridSize, gridType)
@@ -82,8 +81,8 @@ class spatialPattern(Data):
 
         result = {
             'geometry': grid_cell,
-            'total_amount': group['Amount'].sum(),
-            'avg_duration': group['DurationSeconds'].mean(),
+            'total_amount': group["Amount"].sum(),
+            'avg_duration': group["DurationSeconds"].mean(),
             'order_count': group.shape[0]
         }
 
