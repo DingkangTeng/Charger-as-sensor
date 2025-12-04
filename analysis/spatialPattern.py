@@ -8,6 +8,8 @@ from .data import Data
 from _plot import plotSet, FIG_SIZE, BAR_COLORS
 from analysis.__converTime2Hrs import convertTime2Hrs
 
+EPSG = 27700 # For UK only (planar coordinate system)
+
 class spatialPattern(Data):
     __slots__ = ["CHARGER_TYPES"]
 
@@ -31,7 +33,7 @@ class spatialPattern(Data):
         gdf = gpd.GeoDataFrame(self.cleanTime())
         # gdf = gdf[gdf["ConnectorSpeed"].notna()]
         # Change to planar coordinate system
-        gdf.to_crs(27700, inplace=True) # For UK only
+        gdf.to_crs(EPSG, inplace=True) 
 
         # 空间网格化
         xmin, ymin, xmax, ymax = gdf.total_bounds
@@ -57,7 +59,7 @@ class spatialPattern(Data):
             bar.update()
         
         bar.close()
-        gpd.GeoDataFrame(spatial_temporal_cube, crs=4326).to_file(savePath)
+        gpd.GeoDataFrame(spatial_temporal_cube, crs=EPSG).to_file(savePath)
 
         return
     
@@ -75,9 +77,7 @@ class spatialPattern(Data):
             'hour': hour,
             'total_amount': group['Amount'].sum(),
             'avg_duration': group['DurationSeconds'].mean(),
-            'order_count': len(group),
-            'grid_x': gx,
-            'grid_y': gy
+            'order_count': len(group)
         }
 
         return result
