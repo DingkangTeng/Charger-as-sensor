@@ -4,14 +4,10 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
-from datetime import timedelta
-from tqdm import tqdm
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from .data import Data
+from .__converTime2Hrs import convertTime2Hrs
 from _plot import plotSet, FIG_SIZE, BAR_COLORS
-
-
 
 class timeDistribution(Data):
     __slots__ = ["__path", "CHARGER_TYPES"]
@@ -45,62 +41,13 @@ class timeDistribution(Data):
             os.remove(timeDf) if os.path.exists(timeDf) else None
 
         return
-    
-    @staticmethod
-    def _extendTime(df: pd.DataFrame) -> list[dict]:
-        expandedRecords = []
-        bar = tqdm(total=df.shape[0], desc="Converting Data", unit="points")
-
-        for row in df.itertuples():
-            record_type: str = getattr(row, "ConnectorSpeed")
-            start_time: np.datetime64 = getattr(row, "Start")
-            end_time: np.datetime64 = getattr(row, "End")
-            isWeekend: bool = getattr(row, "isWeekend")
-            
-            current_time = start_time
-            
-            while current_time < end_time:
-                # Calculate by one hour
-                hour_end = current_time.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-                if hour_end > end_time:
-                    hour_end = end_time
-                
-                expandedRecords.append({
-                    "type": record_type,
-                    "hour": current_time.hour,
-                    "isWeekend": isWeekend
-                })
-                
-                current_time = hour_end
-            
-            bar.update()
-        
-        bar.close()
-
-        return expandedRecords
 
     # 24 hours heatmap
     def HHeatmap(self, axs: Axes | None = None, figsize: str = 'W', threadNum: int = 1, savePath: str = "") -> None:
         if self.__path != "" and "merge_time.csv" in os.listdir(self.__path):
             timeDf = pd.read_csv(os.path.join(self.__path, "merge_time.csv"), encoding="utf-8")
         else:
-            expandedRecords = []
-            futures =[]
-            with ProcessPoolExecutor(max_workers=threadNum) as executor:
-                for i in np.array_split(self.df, threadNum):
-                    futures.append(executor.submit(self._extendTime, i)) # type: ignore
-                
-                for future in as_completed(futures):
-                    try:
-                        record = future.result()
-                    except Exception as e:
-                        raise RuntimeError(e)
-                    else:
-                        expandedRecords.extend(record)
-        
-            timeDf = pd.DataFrame(expandedRecords)
-            if self.__path != "":
-                timeDf.to_csv(os.path.join(self.__path, "merge_time.csv"), encoding="utf-8")
+            timeDf = convertTime2Hrs(self.df, self.__path, threadNum)
 
         # timeDf:    
         #     type  hour  isWeekend
