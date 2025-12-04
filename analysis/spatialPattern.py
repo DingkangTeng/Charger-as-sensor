@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import box
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from tqdm import tqdm
 
 from .data import Data
 from _plot import plotSet, FIG_SIZE, BAR_COLORS
@@ -29,13 +29,16 @@ class spatialPattern(Data):
     
     def grid(self, savePath: str, maxThreads: int = 1) -> None:
         gdf = gpd.GeoDataFrame(self.cleanTime())
-        gdf = gdf[gdf["ConnectorSpeed"].notna()]
+        # gdf = gdf[gdf["ConnectorSpeed"].notna()]
+        # Change to planar coordinate system
+        gdf.to_crs(27700, inplace=True) # For UK only
 
         # 空间网格化
         xmin, ymin, xmax, ymax = gdf.total_bounds
-        grid_size = 0.01  # 1km网格
-        rows = int((ymax - ymin) / grid_size)
-        cols = int((xmax - xmin) / grid_size)
+        grid_size = 1000  # 1km网格
+        # 计算每个点所在的网格行列号
+        gdf['grid_x'] = ((gdf.geometry.x - xmin) // grid_size).astype(int)
+        gdf['grid_y'] = ((gdf.geometry.y - ymin) // grid_size).astype(int)
 
         # 时间分片
         timeDf = convertTime2Hrs(gdf, threadNum=16)[["hour"]]
@@ -43,47 +46,38 @@ class spatialPattern(Data):
 
         # 创建时空立方体
         spatial_temporal_cube = []
-        
-        executor = ProcessPoolExecutor(max_workers=maxThreads)
-        futures = []
-        for i in range(cols//3):
-            for j in range(rows//3):
-                future = executor.submit(self._calSingleCube, gdf, xmin, ymin, grid_size, i, j)
-                futures.append(future)
 
-        for future in as_completed(futures):
-            try:
-                result = future.result()
-            except Exception as e:
-                raise RuntimeError(e)
-            else:
-                spatial_temporal_cube.extend(result)
+        # 使用groupby进行批量计算
+        grouped = gdf.groupby(['grid_x', 'grid_y', 'hour'])
+        bar = tqdm(total=len(grouped), desc="Generating grids", unit="grid")
+        for (gx, gy, hour), group in grouped:
+            spatial_temporal_cube.append(
+                self._calSingleCube(grouped, gx, gy, xmin, ymin, grid_size, hour)
+            )
+            bar.update()
         
-        df = pd.DataFrame(spatial_temporal_cube)
-        print(df)
-        gpd.GeoDataFrame(df.drop(columns="geometry"), df["geometry"]).to_file(savePath)
+        bar.close()
+        gpd.GeoDataFrame(spatial_temporal_cube, crs=4326).to_file(savePath)
 
         return
     
     @staticmethod
-    def _calSingleCube(gdf: gpd.GeoDataFrame, xmin: float, ymin: float, grid_size: float, i: int, j: int) -> list[dict]:
+    def _calSingleCube(group, gx, gy, xmin, ymin, grid_size, hour) -> dict:
         grid_cell = box(
-            xmin + i*grid_size, ymin + j*grid_size,
-            xmin + (i+1)*grid_size, ymin + (j+1)*grid_size
+            xmin + gx * grid_size,
+            ymin + gy * grid_size,
+            xmin + (gx + 1) * grid_size,
+            ymin + (gy + 1) * grid_size
         )
-        spatial_temporal_cube = []
 
-        for hour in range(24):
-            mask = gdf.within(grid_cell) & (gdf['hour'] == hour)
-            if mask.any():
-                cell_data = gdf[mask]
-                spatial_temporal_cube.append({
-                    'geometry': grid_cell,
-                    'hour': hour,
-                    'total_amount': cell_data['Amount'].sum(),
-                    'avg_duration': cell_data['DurationSeconds'].mean(),
-                    'fast_charge_ratio': (cell_data['ConnectorSpeed'] == 'fast').mean(),
-                    'order_count': len(cell_data)
-                })
+        result = {
+            'geometry': grid_cell,
+            'hour': hour,
+            'total_amount': group['Amount'].sum(),
+            'avg_duration': group['DurationSeconds'].mean(),
+            'order_count': len(group),
+            'grid_x': gx,
+            'grid_y': gy
+        }
 
-        return spatial_temporal_cube
+        return result
