@@ -19,7 +19,7 @@ class monthPattern(Data):
         """)
 
         self.monthDf = self.df[["CPID", "ConnectorID", "ConnectorSpeed", "Start"]]
-        self.monthDf["month"] = self.monthDf["Start"].dt.to_period('M')
+        self.monthDf["month"] = self.monthDf["Start"].dt.to_period('M') # type: ignore
         self.monthDf["charger"] = self.monthDf["CPID"] + self.monthDf["ConnectorID"]
         self.allMonth: list = self.monthDf["month"].unique().tolist()
         self.allMonth.sort()
@@ -33,7 +33,10 @@ class monthPattern(Data):
 
         plt.figure(figsize=getattr(FIG_SIZE, figsize))
         ax = plt.subplot()
-        order.T.plot(ax=ax)
+        order.T.plot(
+            ax=ax,
+            color=BAR_COLORS[0]
+        )
 
         plt.tight_layout()
         if savePath == "":
@@ -52,7 +55,10 @@ class monthPattern(Data):
 
         plt.figure(figsize=getattr(FIG_SIZE, figsize))
         ax = plt.subplot()
-        pd.DataFrame.from_dict(result, orient='index').plot(ax=ax)
+        pd.DataFrame.from_dict(result, orient='index').plot(
+            ax=ax,
+            color=BAR_COLORS[0]
+        )
 
         plt.tight_layout()
         if savePath == "":

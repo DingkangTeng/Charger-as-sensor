@@ -1,5 +1,6 @@
 import pandas as pd
-import numpy as np
+import geopandas as gpd
+from shapely.geometry import Point
 from typing import overload, Literal
 
 MIN = 60
@@ -9,9 +10,9 @@ DAYS = HRS * 24
 class Data:
     __slots__ = ["__df", "originalLength"]
     
-    def __init__(self, path: str | pd.DataFrame) -> None:
+    def __init__(self, path: str | pd.DataFrame | gpd.GeoDataFrame) -> None:
         if isinstance(path, str):
-            self.__df = pd.read_csv(path, encoding="utf-8")
+            self.__df = pd.read_csv(path, encoding="utf-8") if "csv" in path else gpd.read_file(path, encoding="utf-8")
         else:
             self.__df = path
         self.originalLength = self.__df.shape[0]
@@ -20,13 +21,18 @@ class Data:
         self.__df["CPID"] = self.__df["CPID"].astype(str)
         self.__df["ConnectorID"] = self.__df["ConnectorID"].astype(str)
 
-        # Clean invaild data
-        ...
-
         return
     
     @property
     def df(self) -> pd.DataFrame:
+        return self.__df.copy()
+    
+    @property
+    def gdf(self, lng: str = "lng_poi", lat: str = "lat_poi") -> gpd.GeoDataFrame:
+        if not isinstance(self.__df, gpd.GeoDataFrame):
+            self.creatGDF(lng, lat)
+
+        assert isinstance(self.__df, gpd.GeoDataFrame)
         return self.__df.copy()
     
     def __modify(self, mask: pd.Series, inplace: bool) -> None | pd.DataFrame:
@@ -35,11 +41,25 @@ class Data:
             return
         else:
             return self.__df[mask].copy()
+        
+    def creatGDF(self, lng: str = "lng_poi", lat: str = "lat_poi") -> gpd.GeoDataFrame:
+        if lng not in self.__df.columns or lat not in self.__df.columns:
+            raise RuntimeError("Do not have {} or {} in the dataframe".format(lng, lat))
+        
+        self.cleanPOI(lng, lat, inplace=True)
+        self.__df = gpd.GeoDataFrame(
+            self.__df,
+            geometry=[Point(xy) for xy in zip(self.__df[lng], self.__df[lat])],
+            crs=4326
+        )
+
+        return self.__df.copy()
     
     @overload
     def cleanTime(self, inplace: Literal[False] = False) -> pd.DataFrame: ...
     @overload
     def cleanTime(self, inplace: Literal[True]) -> None: ...
+
     def cleanTime(self, inplace: bool = False) -> None | pd.DataFrame:
         mask = (
             self.__df["Start"].notna() &                    # Clean invaild time data
@@ -55,7 +75,18 @@ class Data:
     def cleanConSpeed(self, inplace: Literal[False] = False) -> pd.DataFrame: ...
     @overload
     def cleanConSpeed(self, inplace: Literal[True]) -> None: ...    
+
     def cleanConSpeed(self, inplace: bool = False) -> None | pd.DataFrame:
         mask = self.__df["ConnectorSpeed"].notna()
+
+        return self.__modify(mask, inplace)
+    
+    @overload
+    def cleanPOI(self, lng: str, lat: str, inplace: Literal[False] = False) -> pd.DataFrame: ...
+    @overload
+    def cleanPOI(self, lng: str, lat: str, inplace: Literal[True]) -> None: ...    
+
+    def cleanPOI(self, lng: str = "lng_poi", lat: str = "lat_poi", inplace: bool = False) -> None | pd.DataFrame:
+        mask = self.__df[lng].notna() & self.__df[lat].notna()
 
         return self.__modify(mask, inplace)

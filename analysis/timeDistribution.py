@@ -17,7 +17,7 @@ class timeDistribution(Data):
     __slots__ = ["__path", "CHARGER_TYPES"]
 
     def __init__(self, path: str | pd.DataFrame) -> None:
-        self.__path = "   "
+        self.__path = ""
         if isinstance(path, str) and ".csv" not in path:
             self.__path = path
             self.CHARGER_TYPES = ["slow", "fast"]
@@ -40,7 +40,7 @@ class timeDistribution(Data):
         return
     
     def cleanCacheData(self) -> None:
-        if self.__path != "   ":
+        if self.__path != "":
             timeDf = os.path.join(self.__path, "merge_time.csv")
             os.remove(timeDf) if os.path.exists(timeDf) else None
 
@@ -81,7 +81,7 @@ class timeDistribution(Data):
 
     # 24 hours heatmap
     def HHeatmap(self, axs: Axes | None = None, figsize: str = 'W', threadNum: int = 1, savePath: str = "") -> None:
-        if self.__path != "   " and "merge_time.csv" in os.listdir(self.__path):
+        if self.__path != "" and "merge_time.csv" in os.listdir(self.__path):
             timeDf = pd.read_csv(os.path.join(self.__path, "merge_time.csv"), encoding="utf-8")
         else:
             expandedRecords = []
@@ -99,7 +99,7 @@ class timeDistribution(Data):
                         expandedRecords.extend(record)
         
             timeDf = pd.DataFrame(expandedRecords)
-            if self.__path != "   ":
+            if self.__path != "":
                 timeDf.to_csv(os.path.join(self.__path, "merge_time.csv"), encoding="utf-8")
 
         # timeDf:    
@@ -168,6 +168,7 @@ class timeDistribution(Data):
         labels = ["<1", "1-2", "2-3", "3-4", "4-5", "5-6", "6-7", "7-8", "8-9", "9-10", "10-11", "11-12", ">12"]
         df["timeSegment"] = pd.cut(df["hrs"], bins=bins, labels=labels, right=False)
         df = df.groupby(["ConnectorSpeed", "isWeekend", "timeSegment"], observed=False).size().unstack(fill_value=0)
+        # df = df.groupby(["ConnectorSpeed", "isWeekend", "timeSegment"], observed=False)["Amount"].sum().unstack(fill_value=0)
 
         for i, var in enumerate(self.CHARGER_TYPES):
             subdf = df.xs(var, level="ConnectorSpeed")
@@ -206,7 +207,7 @@ class timeDistribution(Data):
     # Start hour frequency
     def startHour(self, axs: list[Axes] | None = None, figsize: str = 'D', savePath: str = "") -> None:
         df = self.df[["ConnectorSpeed", "isWeekend", "Start"]]
-        df["hrs"] = df["Start"].dt.hour
+        df["hrs"] = df["Start"].dt.hour # type: ignore
         bins = list(range(0,25))
         labels = [f"{i}:00-{i+1}:00" for i in range(24)]
         df["timeSegment"] = pd.cut(df["hrs"], bins=bins, labels=labels, right=False)
