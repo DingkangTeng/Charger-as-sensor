@@ -29,55 +29,65 @@ class spatialPattern(Data):
 
         return
     
-    def grid(self, savePath: str, maxThreads: int = 1) -> None:
+    def grid(self, savePath: str, gridType: str = "all") -> None:
         gdf = gpd.GeoDataFrame(self.cleanTime())
-        # gdf = gdf[gdf["ConnectorSpeed"].notna()]
-        # Change to planar coordinate system
-        gdf.to_crs(EPSG, inplace=True) 
+        gdf.to_crs(EPSG, inplace=True) # Change to planar coordinate system
 
-        # 空间网格化
+        # Creat grid
         xmin, ymin, _, _ = gdf.total_bounds
-        grid_size = 1000  # 1km网格
-        # 计算每个点所在的网格行列号
-        gdf['grid_x'] = ((gdf.geometry.x - xmin) // grid_size).astype(int)
-        gdf['grid_y'] = ((gdf.geometry.y - ymin) // grid_size).astype(int)
+        gridSize = 1000  # 1km网格
+        # Calculate grid number
+        gdf["grid_x"] = ((gdf.geometry.x - xmin) // gridSize).astype(int)
+        gdf["grid_y"] = ((gdf.geometry.y - ymin) // gridSize).astype(int)
+        groupTag = ["grid_x", "grid_y"]
 
-        # 时间分片
-        timeDf = convertTime2Hrs(gdf, threadNum=16)[["hour"]]
-        gdf = gdf.join(timeDf)
+        if gridType == "hours":
+            timeDf = convertTime2Hrs(gdf, threadNum=16)[["hour"]]
+            gdf = gdf.join(timeDf)
+            groupTag += ["hour"]
+        elif gridType == "speed":
+            gdf = gdf[gdf["ConnectorSpeed"].notna()]
+            gdf["ConnectorSpeed"] = gdf["ConnectorSpeed"].map({True: "fast", False: "slow"})
+            groupTag += ["ConnectorSpeed"]
 
-        # 创建时空立方体
-        spatial_temporal_cube = []
-
-        # 使用groupby进行批量计算
-        grouped = gdf.groupby(['grid_x', 'grid_y', 'hour']) #这个地方可以改成chargingtype
+        grids = []
+        
+        # Calcualte grid
+        grouped = gdf.groupby(groupTag)
         bar = tqdm(total=len(grouped), desc="Generating grids", unit="grid")
-        for (gx, gy, hour), group in grouped:
-            spatial_temporal_cube.append(
-                self._calSingleCube(group, gx, gy, xmin, ymin, grid_size, hour)
+        for tags, group in grouped:
+            grids.append(
+                self._calSingleCube(tags, group, xmin, ymin, gridSize, gridType)
             )
             bar.update()
         
         bar.close()
-        gpd.GeoDataFrame(spatial_temporal_cube, crs=EPSG).to_file(savePath)
+        gpd.GeoDataFrame(grids, crs=EPSG).to_file(savePath, layer=gridType)
 
         return
     
     @staticmethod
-    def _calSingleCube(group: pd.DataFrame, gx: int, gy: int, xmin: float, ymin: float, grid_size: float, hour: int) -> dict:
+    def _calSingleCube(tags: tuple, group: pd.DataFrame, xmin: float, ymin: float, gridSize: float, gridType: str) -> dict:
+        if len(tags) == 2:
+            gx, gy = tags
+        else:
+            gx, gy, tag = tags
+
         grid_cell = box(
-            xmin + gx * grid_size,
-            ymin + gy * grid_size,
-            xmin + (gx + 1) * grid_size,
-            ymin + (gy + 1) * grid_size
+            xmin + gx * gridSize,
+            ymin + gy * gridSize,
+            xmin + (gx + 1) * gridSize,
+            ymin + (gy + 1) * gridSize
         )
 
         result = {
             'geometry': grid_cell,
-            'hour': hour,
             'total_amount': group['Amount'].sum(),
             'avg_duration': group['DurationSeconds'].mean(),
             'order_count': group.shape[0]
         }
+
+        if len(tags) !=2:
+            result[gridType] = tag # type: ignore
 
         return result
