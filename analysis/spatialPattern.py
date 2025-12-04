@@ -36,7 +36,7 @@ class spatialPattern(Data):
         gdf.to_crs(EPSG, inplace=True) 
 
         # 空间网格化
-        xmin, ymin, xmax, ymax = gdf.total_bounds
+        xmin, ymin, _ = gdf.total_bounds
         grid_size = 1000  # 1km网格
         # 计算每个点所在的网格行列号
         gdf['grid_x'] = ((gdf.geometry.x - xmin) // grid_size).astype(int)
@@ -50,11 +50,11 @@ class spatialPattern(Data):
         spatial_temporal_cube = []
 
         # 使用groupby进行批量计算
-        grouped = gdf.groupby(['grid_x', 'grid_y', 'hour'])
+        grouped = gdf.groupby(['grid_x', 'grid_y', 'hour']) #这个地方可以改成chargingtype
         bar = tqdm(total=len(grouped), desc="Generating grids", unit="grid")
         for (gx, gy, hour), group in grouped:
             spatial_temporal_cube.append(
-                self._calSingleCube(grouped, gx, gy, xmin, ymin, grid_size, hour)
+                self._calSingleCube(group, gx, gy, xmin, ymin, grid_size, hour)
             )
             bar.update()
         
@@ -64,7 +64,7 @@ class spatialPattern(Data):
         return
     
     @staticmethod
-    def _calSingleCube(group, gx, gy, xmin, ymin, grid_size, hour) -> dict:
+    def _calSingleCube(group: pd.DataFrame, gx: int, gy: int, xmin: float, ymin: float, grid_size: float, hour: int) -> dict:
         grid_cell = box(
             xmin + gx * grid_size,
             ymin + gy * grid_size,
@@ -77,7 +77,7 @@ class spatialPattern(Data):
             'hour': hour,
             'total_amount': group['Amount'].sum(),
             'avg_duration': group['DurationSeconds'].mean(),
-            'order_count': len(group)
+            'order_count': group.shape[0]
         }
 
         return result
