@@ -6,13 +6,11 @@ LABEL_SIZE = 24
 TICK_SIZE = int(LABEL_SIZE * 0.9)
 @dataclass
 class __FIG_SIZE:
-    D: tuple[int, int] = (10,9)     # Default
-    R: tuple[int, int] = (9, 10)    # Rotate
-    H: tuple[int, int] = (10, 18)   # Higher
-    W: tuple[int, int] = (20, 9)    # Wider
-    H3W: tuple[int, int] = (20, 27)  # Higher * 3 and wider
-    N: tuple[int, int] = (5, 9)     # Narrower
-    S: tuple[int, int] = (10, 3)    # Shorter
+    D: tuple[int, int] = (12, 12)   # Default
+    H: tuple[int, int] = (12, 24)   # High
+    N: tuple[int, int] = (12, 6)   # Narrow
+    W: tuple[int, int] = (24, 12)    # Wide
+    HU: tuple[int, int] = (24, 24)    # Huge
 FIG_SIZE = __FIG_SIZE()
 
 # Color map

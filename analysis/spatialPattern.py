@@ -4,11 +4,9 @@ import geopandas as gpd
 from shapely.geometry import box
 from tqdm import tqdm
 
-from .data import Data
+from .data import Data, EPSG
 from _plot import plotSet, FIG_SIZE, BAR_COLORS
 from analysis.__converTime2Hrs import convertTime2Hrs
-
-EPSG = 27700 # For UK only (planar coordinate system)
 
 class spatialPattern(Data):
     __slots__ = ["CHARGER_TYPES"]

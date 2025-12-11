@@ -1,11 +1,13 @@
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Point
+from pyproj import CRS
 from typing import overload, Literal
 
 MIN = 60
 HRS = MIN * 60
 DAYS = HRS * 24
+EPSG = 27700 # For UK only (planar coordinate system)
 
 class Data:
     __slots__ = ["__df", "originalLength"]
@@ -34,6 +36,14 @@ class Data:
 
         assert isinstance(self.__df, gpd.GeoDataFrame)
         return self.__df.copy()
+    
+    @property
+    def crs(self, lng: str = "lng_poi", lat: str = "lat_poi") -> CRS:
+        if not isinstance(self.__df, gpd.GeoDataFrame):
+            self.creatGDF(lng, lat)
+
+        assert isinstance(self.__df, gpd.GeoDataFrame) and self.__df.crs is not None
+        return self.__df.crs
     
     def __modify(self, mask: pd.Series, inplace: bool) -> None | pd.DataFrame:
         if inplace:

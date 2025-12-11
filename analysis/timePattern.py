@@ -9,7 +9,7 @@ from .data import Data
 from .__converTime2Hrs import convertTime2Hrs
 from _plot import plotSet, FIG_SIZE, BAR_COLORS
 
-class timeDistribution(Data):
+class timePattern(Data):
     __slots__ = ["__path", "CHARGER_TYPES"]
 
     def __init__(self, path: str | pd.DataFrame) -> None:
@@ -43,29 +43,46 @@ class timeDistribution(Data):
         return
 
     # 24 hours heatmap
-    def HHeatmap(self, axs: Axes | None = None, figsize: str = 'W', threadNum: int = 1, savePath: str = "") -> None:
+    def HHeatmap(self, axs: Axes | None = None, groupPattern: str = "weekly", figsize: str = 'W', savePath: str = "", threadNum: int = 1) -> None:
         if self.__path != "" and "merge_time.csv" in os.listdir(self.__path):
             timeDf = pd.read_csv(os.path.join(self.__path, "merge_time.csv"), encoding="utf-8")
         else:
             timeDf = convertTime2Hrs(self.df, self.__path, threadNum)
 
         # timeDf:    
-        #     type  hour  isWeekend
-        # 0   fast    11     False
+        #     type  hour  isWeekend quarter
+        # 0   fast    11     False      1
         hours = list(range(24))
-        heatmapData = np.empty((len(self.CHARGER_TYPES) * 2, len(hours)))
         
         # Fill heatmap data
-        for i, val in enumerate(self.CHARGER_TYPES):
-            type_data = timeDf[timeDf["type"] == val]
-            
-            weekdayData: pd.DataFrame = type_data[~type_data["isWeekend"]]
-            weekdayCounts = weekdayData.groupby('hour').size().T.to_numpy()
-            heatmapData[i * 2] = weekdayCounts
-            
-            weekendData: pd.DataFrame = type_data[type_data["isWeekend"]]
-            weekendCounts = weekendData.groupby("hour").size().T.to_numpy()
-            heatmapData[i * 2 + 1] = weekendCounts
+        if groupPattern == "weekly":
+            heatmapData = np.empty((len(self.CHARGER_TYPES) * 2, len(hours)))
+            for i, val in enumerate(self.CHARGER_TYPES):
+                typeData = timeDf[timeDf["type"] == val]
+                
+                weekdayData: pd.DataFrame = typeData[~typeData["isWeekend"]]
+                weekdayCounts = weekdayData.groupby("hour").size().T.to_numpy()
+                heatmapData[i * 2] = weekdayCounts
+                
+                weekendData: pd.DataFrame = typeData[typeData["isWeekend"]]
+                weekendCounts = weekendData.groupby("hour").size().T.to_numpy()
+                heatmapData[i * 2 + 1] = weekendCounts
+
+            yticks = ["Weekday", "Weekend"]
+
+        elif groupPattern == "seasonly":
+            heatmapData = np.empty((len(self.CHARGER_TYPES) * 4, len(hours)))
+            for i, val in enumerate(self.CHARGER_TYPES):
+                typeData = timeDf[timeDf["type"] == val]
+                for j in [1, 2, 3, 4]:
+                    data: pd.DataFrame = typeData[typeData["quarter"] == j]
+                    counts = data.groupby("hour").size().T.to_numpy()
+                    heatmapData[i * 2 + j - 1] = counts
+
+            yticks = ["Season One", "Season Two", "Season Three", "Season Four"]
+
+        else:
+            raise RuntimeError("Unsupport group pattern.")
         
         if axs is None:
             plt.figure(figsize=getattr(FIG_SIZE, figsize))
@@ -79,13 +96,13 @@ class timeDistribution(Data):
             cmap="YlOrRd",
             linewidths=0.5,
             xticklabels=[f"{h:02d}:00" for h in hours],
-            yticklabels=["Weekday", "Weekend"] * len(self.CHARGER_TYPES)
+            yticklabels=yticks * len(self.CHARGER_TYPES)
         )
 
         # Add classify label
         for i, val in enumerate(self.CHARGER_TYPES):
             ax.text(
-                -3.5,
+                -3.5 if groupPattern == "weekly" else -10.5,
                 i * 2 + 1,
                 val.capitalize(),
                 ha="right", va="center", 
@@ -95,14 +112,14 @@ class timeDistribution(Data):
         ax.set_xlabel("Hour of Day")
         ax.set_xticklabels([f"{h:02d}:00" for h in hours], rotation=45)
         ax.set_ylabel("Charging Attribute", labelpad=100)
-        ax.set_yticklabels(["Weekday", "Weekend"] * len(self.CHARGER_TYPES), rotation=0)
+        ax.set_yticklabels(yticks * len(self.CHARGER_TYPES), rotation=0)
         
         plt.tight_layout()
         if axs is None and savePath == "":
             plt.show()
             plt.close()
         elif savePath !="":
-            plt.savefig(os.path.join(savePath, "timeHeat.jpg"))
+            plt.savefig(os.path.join(savePath, "timeHeat_{}.jpg".format(groupPattern)))
             plt.close()
         
         return
@@ -191,5 +208,68 @@ class timeDistribution(Data):
             elif axs is None:
                 plt.savefig(os.path.join(savePath, "startHr_{}.jpg".format(var)))
                 plt.close()
+
+        return
+    
+    def durationDensity(self, speed: str = "all", axs: Axes | None = None, figsize: str = 'D', savePath: str = "") -> None:
+        df = self.df[["Start", "End", "ConnectorSpeed"]]
+        if speed == "fast": df = df[df["ConnectorSpeed"] == "fast"]
+        elif speed == "slow": df = df[df["ConnectorSpeed"] == "slow"]
+
+        df["Start"] = pd.to_datetime(df["Start"])
+        df["End"] = pd.to_datetime(df["End"])
+
+        df["Start"] = df["Start"].dt.hour * 3600 + df["Start"].dt.minute * 60 + df["Start"].dt.second # type:ignore
+        df["End"] = df["End"].dt.hour * 3600 + df["End"].dt.minute * 60 + df["End"].dt.second # type:ignore
+
+        if axs is None:
+            plt.figure(figsize=getattr(FIG_SIZE, figsize))
+            ax = plt.subplot()
+        else:
+            ax = axs
+
+        # 使用hexbin绘制密度图
+        hex_plot = plt.hexbin(
+            df["Start"], 
+            df["End"],
+            gridsize=30,  # 六边形网格大小
+            cmap='YlOrRd',  # 颜色映射
+            mincnt=1,  # 最小计数
+            edgecolors='none'  # 无边线
+        )
+
+        # 添加颜色条
+        cb = plt.colorbar(hex_plot)
+        cb.set_label('Count', fontsize=12)
+
+        # 设置坐标轴
+        # 设置坐标轴为时间格式
+        def seconds_to_time_str(seconds):
+            """将秒数转换为HH:MM格式"""
+            hours = int(seconds // 3600)
+            minutes = int((seconds % 3600) // 60)
+            return f'{hours:02d}:{minutes:02d}'
+        time_ticks = np.arange(0, 24*3600, 2*3600)  # 每2小时一个刻度
+        time_labels = [seconds_to_time_str(t) for t in time_ticks]
+        plt.xticks(time_ticks, time_labels, rotation=45)
+        plt.yticks(time_ticks, time_labels)
+
+        # 添加对角线
+        max_seconds = 24*3600
+        plt.plot([0, max_seconds], [0, max_seconds], 'b--', alpha=0.5, linewidth=2, label='Start=End')
+
+        plt.xlabel('Start Time', fontsize=12)
+        plt.ylabel('End Time', fontsize=12)
+        plt.title('Start-End Time Pair Distribution (Hexbin)', fontsize=14)
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.tight_layout()
+        
+        if axs is None and savePath == "":
+            plt.show()
+            plt.close()
+        elif axs is None:
+            plt.savefig(os.path.join(savePath, "durDensity_{}.jpg".format(speed)))
+            plt.close()
 
         return

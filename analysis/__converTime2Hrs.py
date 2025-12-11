@@ -19,17 +19,18 @@ def _extendTime(df: pd.DataFrame) -> list[dict]:
         
         while currentTime < endTime:
             # Calculate by one hour
-            hour_end = currentTime.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-            if hour_end > endTime:
-                hour_end = endTime
+            hourEnd = currentTime.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+            if hourEnd > endTime:
+                hourEnd = endTime
             
             expandedRecords.append({
                 "type": recordType,
                 "hour": currentTime.hour,
-                "isWeekend": isWeekend
+                "isWeekend": isWeekend,
+                "quarter": pd.Timestamp(currentTime).quarter
             })
             
-            currentTime = hour_end
+            currentTime = hourEnd
         
         bar.update()
     
