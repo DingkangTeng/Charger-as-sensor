@@ -9,7 +9,6 @@ from _plot import plotSet, FIG_SIZE, BAR_COLORS
 from analysis.__converTime2Hrs import convertTime2Hrs
 
 class spatialPattern(Data):
-    __slots__ = ["CHARGER_TYPES"]
 
     def __init__(self, path: str | pd.DataFrame | gpd.GeoDataFrame) -> None:
         super().__init__(path)
@@ -20,14 +19,12 @@ class spatialPattern(Data):
             Origional data volumns: {self.originalLength}\n
             Volumns after cleaning: {self.df.shape[0]} ({self.df.shape[0]/self.originalLength*100:.02f}%)
         """)
-    
-        self.CHARGER_TYPES = self.df["ConnectorSpeed"].unique().tolist()
             
         plotSet()
 
         return
     
-    def grid(self, savePath: str, gridSize: float = 1000, gridType: str = "allRecord") -> None:
+    def grid(self, savePath: str, gridSize: float = 1000, gridType: str = "allRecord", threadNum: int = 1) -> None:
         gdf = gpd.GeoDataFrame(self.cleanTime())
         gdf.to_crs(EPSG, inplace=True) # Change to planar coordinate system
 
@@ -40,7 +37,7 @@ class spatialPattern(Data):
         groupTag = ["grid_x", "grid_y"]
 
         if gridType == "hours":
-            timeDf = convertTime2Hrs(gdf, threadNum=16)[["hour"]]
+            timeDf = convertTime2Hrs(gdf, threadNum=threadNum)[["hour"]]
             gdf = gdf.join(timeDf)
             groupTag += ["hour"]
         elif gridType == "speed":
@@ -59,7 +56,7 @@ class spatialPattern(Data):
             bar.update()
         
         bar.close()
-        gpd.GeoDataFrame(grids, crs=EPSG).to_file(savePath, layer=gridType)
+        gpd.GeoDataFrame(grids, crs=EPSG).to_file(os.path.join(savePath, "grided.gpkg"), layer=gridType)
 
         return
     
@@ -88,3 +85,32 @@ class spatialPattern(Data):
             result[gridType] = tag # type: ignore
 
         return result
+    
+    def location(self, savePath: str, startAndEnd: tuple[int, int]) -> None:
+        gdf = gpd.GeoDataFrame(self.cleanTime())
+        gdf.to_crs(EPSG, inplace=True) # Change to planar coordinate system
+
+        # Get the unique locations
+        gdf["lcoation"] = gdf["lng_poi"].astype(str) + "-" + gdf["lat_poi"].astype(str)
+
+        # Tag overnight
+        gdf["dayOrders"] = (gdf["Start"].dt.hour < startAndEnd[0]) & (gdf["End"].dt.hour > startAndEnd[1]) # type: ignore
+        gdf["overnightOrders"] = ~gdf["dayOrders"]
+        # Not ruboust enough, need to be improved later
+        gdf["dayOrders"] = gdf["dayOrders"].astype(int)
+        gdf["overnightOrders"] = gdf["overnightOrders"].astype(int)
+        
+        # Calcualte location
+        gdf = gdf.groupby(["lcoation", "ConnectorSpeed"]).agg({
+            "geometry": "first",
+            "Amount": "sum",
+            "Consum": "sum",
+            "DurationSeconds": "mean",
+            "dayOrders": "sum",
+            "overnightOrders": "sum",
+        }).reset_index()
+        gdf["overnightPercentage"] = gdf["overnightOrders"] / (gdf["dayOrders"] + gdf["overnightOrders"])
+
+        gpd.GeoDataFrame(gdf).set_geometry("geometry").set_crs(EPSG).to_file(os.path.join(savePath, "location.gpkg"), layer="location")
+
+        return

@@ -75,8 +75,8 @@ class Data:
             self.__df["Start"].notna() &                    # Clean invaild time data
             self.__df["End"].notna() &                      # Clean invaild time data
             self.__df["DurationSeconds"].notna() &         # Clean invaild time data
-            (self.__df["DurationSeconds"] > 5 * MIN) &     # Too short duration
-            (self.__df["DurationSeconds"] < 10 * DAYS)     # Too long duration
+            (self.__df["DurationSeconds"] >= 5 * MIN) &     # Too short duration
+            (self.__df["DurationSeconds"] <= 1 * DAYS)     # Too long duration
         )
         
         return self.__modify(mask, inplace)

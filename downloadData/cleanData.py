@@ -82,7 +82,7 @@ def cleanData(path: str, savePath: str) -> None:
     endNaTMask = df["Start"].notna() & df["Duration Seconds"].notna() & df["End"].isna()
     df.loc[endNaTMask, "End"] = df.loc[endNaTMask, "Start"] + pd.to_timedelta(df.loc[endNaTMask, "Duration Seconds"], unit='s')
     secondNanMask = df["Start"].notna() & df["End"].notna() & df["Duration Seconds"].isna()
-    df.loc[secondNanMask, "Duration Seconds"] = (df.loc[secondNanMask, "End"] - df.loc[secondNanMask, "Start"]) / pd.Timedelta(seconds=1)
+    df.loc[secondNanMask, "Duration Seconds"] = (df.loc[secondNanMask, "End"] - df.loc[secondNanMask, "Start"]) / pd.Timedelta(seconds=1) # type: ignore
 
     # Is weekend?
     df["isWeekend"] = df["Start"].astype("datetime64[ns]").dt.weekday >= 5  # 5=Saturday, 6=Sunday
